@@ -5,6 +5,7 @@ description = "Kamora Tech FastAPI backend"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
+  "starlette>=0.46.0",
   "uvicorn>=0.30.0",
   "sqlalchemy[asyncio]>=2.0.30",
   "psycopg[binary]>=3.1.18",
@@ -16,12 +17,13 @@ dependencies = [
   "bcrypt>=4.2.0",
   "alembic>=1.13.0",
   "boto3>=1.34.0",
+  "httpx>=0.27.0",
   "openai>=1.50.0",
   "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
-dev = ["httpx>=0.27.0", "pytest>=8.0.0", "black>=24.0.0", "ruff>=0.6.0"]
+dev = ["pytest>=8.0.0", "black>=24.0.0", "ruff>=0.6.0"]
 
 [tool.ruff]
 line-length = 100
