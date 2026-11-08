@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "kamora-backend"
 version = "1.0.0"
 description = "Kamora Tech FastAPI backend"

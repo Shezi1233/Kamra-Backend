@@ -1,4 +1,4 @@
-﻿"""One-time migration from the legacy XAMPP MySQL database to Neon PostgreSQL."""
+"""One-time migration from the legacy XAMPP MySQL database to Neon PostgreSQL."""
 
 from __future__ import annotations
 
