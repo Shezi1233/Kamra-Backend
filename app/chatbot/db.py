@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 from collections.abc import AsyncIterator
 from functools import lru_cache
@@ -19,10 +20,12 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import NullPool
 
 from app.chatbot.config import chatbot_settings
+
+logger = logging.getLogger("app.chatbot.db")
 
 
 class ChatbotBase(DeclarativeBase):
@@ -33,12 +36,19 @@ class ChatbotBase(DeclarativeBase):
 def get_engine() -> AsyncEngine | None:
     if not chatbot_settings.database_configured:
         return None
-    return create_async_engine(
-        chatbot_settings.chatbot_sqlalchemy_url,
-        poolclass=NullPool,
-        pool_pre_ping=True,
-        future=True,
-    )
+    try:
+        return create_async_engine(
+            chatbot_settings.chatbot_sqlalchemy_url,
+            pool_pre_ping=True,
+            pool_size=chatbot_settings.db_pool_size,
+            max_overflow=chatbot_settings.db_max_overflow,
+            pool_recycle=chatbot_settings.db_pool_recycle,
+            connect_args={"prepare_threshold": None},
+            future=True,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("Chatbot database engine could not be created.", exc_info=True)
+        return None
 
 
 @lru_cache
@@ -56,8 +66,15 @@ async def get_chatbot_db() -> AsyncIterator[AsyncSession]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Chatbot database is not configured.",
         )
-    async with factory() as session:
-        yield session
+    try:
+        async with factory() as session:
+            yield session
+    except DBAPIError as exc:
+        logger.warning("Chatbot database unavailable: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chatbot database is unavailable.",
+        ) from exc
 
 
 async def init_chatbot_db() -> bool:

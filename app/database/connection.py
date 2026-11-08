@@ -4,14 +4,16 @@ from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
 engine = create_engine(
     settings.sqlalchemy_url,
-    poolclass=NullPool,
     pool_pre_ping=True,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=settings.db_pool_recycle,
+    connect_args={"prepare_threshold": None},
     future=True,
 )
 

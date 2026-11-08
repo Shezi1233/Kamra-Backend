@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import settings
+from app.utils.uploads import resolve_upload_dir
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
@@ -47,12 +48,20 @@ class UploadService:
             url = self._save_s3(name, buffer, _detect_mime(buffer) or "application/octet-stream")
             return {"name": name, "url": url}
 
-        directory = Path(settings.upload_dir)
-        if not directory.is_absolute():
-            directory = Path(__file__).resolve().parents[2] / directory
-        directory.mkdir(parents=True, exist_ok=True)
+        directory = resolve_upload_dir()
+        if directory is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Upload storage is not available on this deployment.",
+            )
         destination = directory / name
-        destination.write_bytes(buffer)
+        try:
+            destination.write_bytes(buffer)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Upload storage is not writable on this deployment.",
+            ) from exc
         url = f"{settings.app_url.rstrip('/')}/uploads/{name}"
         return {"name": name, "url": url}
 

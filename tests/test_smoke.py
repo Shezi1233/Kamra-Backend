@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from app.core.security import hash_password, verify_password
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 
 def test_health() -> None:

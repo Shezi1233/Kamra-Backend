@@ -22,6 +22,9 @@ class ChatbotSettings(BaseSettings):
 
     # Isolated chatbot database (Neon Postgres).
     chatbot_database_url: str | None = None
+    db_pool_size: int = Field(default=5, ge=1, le=20)
+    db_max_overflow: int = Field(default=5, ge=0, le=20)
+    db_pool_recycle: int = Field(default=280, ge=60)
 
     # Cohere embeddings + rerank.
     cohere_api_key: str | None = None

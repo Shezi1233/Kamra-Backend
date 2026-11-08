@@ -90,6 +90,16 @@ async def chat(
             detail="Message is too long.",
         )
 
+    if not (
+        chatbot_settings.cohere_configured
+        and chatbot_settings.qdrant_configured
+        and chatbot_settings.openrouter_configured
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chatbot service is not configured.",
+        )
+
     new_cart_token: str | None = None
     if user is None and not cart_token:
         new_cart_token = generate_cart_token()
@@ -106,7 +116,7 @@ async def chat(
     )
 
     headers = {
-        "Cache-Control": "no-cache",
+        "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
     }
@@ -191,6 +201,8 @@ async def health() -> HealthOut:
             database = "ok"
         except Exception:  # noqa: BLE001
             database = "error"
+    elif chatbot_settings.database_configured:
+        database = "error"
 
     qdrant = "not_configured"
     collection = chatbot_settings.qdrant_collection

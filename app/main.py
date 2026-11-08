@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +15,7 @@ from app.chatbot.router import router as chatbot_router
 from app.core.config import settings
 from app.middleware.cors import add_cors, register_routes
 from app.middleware.security_headers import SecurityHeadersMiddleware
+from app.utils.uploads import resolve_upload_dir
 
 logger = logging.getLogger("app.main")
 
@@ -22,11 +23,13 @@ logger = logging.getLogger("app.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        ready = await init_chatbot_db()
+        ready = await asyncio.wait_for(init_chatbot_db(), timeout=5.0)
         if ready:
             logger.info("Chatbot database tables are ready.")
         else:
             logger.warning("CHATBOT_DATABASE_URL is not configured; chatbot DB skipped.")
+    except asyncio.TimeoutError:
+        logger.warning("Chatbot database initialization timed out; continuing.")
     except Exception:  # noqa: BLE001
         logger.warning(
             "Chatbot database initialization failed; the rest of the API will run.",
@@ -34,17 +37,11 @@ async def lifespan(app: FastAPI):
         )
     yield
     try:
-        await dispose_chatbot_db()
+        await asyncio.wait_for(dispose_chatbot_db(), timeout=5.0)
+    except asyncio.TimeoutError:
+        logger.warning("Chatbot database disposal timed out.")
     except Exception:  # noqa: BLE001
         logger.warning("Chatbot database disposal failed.", exc_info=True)
-
-
-def _upload_directory() -> Path:
-    directory = Path(settings.upload_dir)
-    if not directory.is_absolute():
-        directory = Path(__file__).resolve().parents[1] / directory
-    directory.mkdir(parents=True, exist_ok=True)
-    return directory
 
 
 def create_app() -> FastAPI:
@@ -66,7 +63,15 @@ def create_app() -> FastAPI:
     app.include_router(chatbot_router)
 
     if settings.upload_storage == "local":
-        app.mount("/uploads", StaticFiles(directory=str(_upload_directory())), name="uploads")
+        upload_directory = resolve_upload_dir()
+        if upload_directory is not None:
+            app.mount(
+                "/uploads",
+                StaticFiles(directory=str(upload_directory)),
+                name="uploads",
+            )
+        else:
+            logger.warning("Upload directory is unavailable; /uploads is not mounted.")
 
     @app.get("/health", tags=["health"])
     def health() -> dict[str, str]:

@@ -24,7 +24,10 @@ def rate_limit_key(request: Request) -> str:
     if token:
         digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:24]
         return f"token:{digest}"
-    host = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("X-Forwarded-For")
+    host = forwarded.split(",")[0].strip() if forwarded else None
+    if not host:
+        host = request.client.host if request.client else "unknown"
     return f"ip:{host}"
 
 
